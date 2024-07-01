@@ -285,7 +285,7 @@ export class KMSSigner {
     tx: Transaction | FeeMarketEIP1559Transaction,
     supportsEIP1559: boolean
   ) => {
-    const signedTx = await this.getSignedKmsTx(chainId, ethAddr, tx, supportsEIP1559)
+    const signedTx = await this.getSignedKmsTx(chainId, tx, supportsEIP1559)
 
     // Send signed tx to ethereum network
     const serializedTx = signedTx.serialize().toString('hex')
@@ -295,10 +295,10 @@ export class KMSSigner {
 
   public getSignedKmsTx = async (
       chainId: number,
-      ethAddr: string,
       tx: Transaction | FeeMarketEIP1559Transaction,
       supportsEIP1559: boolean
   ): Promise<Transaction | FeeMarketEIP1559Transaction> => {
+    const ethAddr = await this.getSignerAddr()
     const msgHash = tx.getMessageToSign(true) // tx.hash();
     const sig = await this.findEthereumSig(msgHash)
 
