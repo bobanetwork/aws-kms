@@ -285,15 +285,29 @@ export class KMSSigner {
     tx: Transaction | FeeMarketEIP1559Transaction,
     supportsEIP1559: boolean
   ) => {
+    const signedTx = await this.getSignedKmsTx(chainId, ethAddr, tx, supportsEIP1559)
+
+    // Send signed tx to ethereum network
+    const serializedTx = signedTx.serialize().toString('hex')
+    return provider.sendTransaction(`0x${serializedTx}`)
+  }
+
+
+  public getSignedKmsTx = async (
+      chainId: number,
+      ethAddr: string,
+      tx: Transaction | FeeMarketEIP1559Transaction,
+      supportsEIP1559: boolean
+  ): Promise<Transaction | FeeMarketEIP1559Transaction> => {
     const msgHash = tx.getMessageToSign(true) // tx.hash();
     const sig = await this.findEthereumSig(msgHash)
 
     const recoveredPubAddr = this.findRightKey(
-      msgHash,
-      sig.r,
-      sig.s,
-      ethAddr,
-      supportsEIP1559
+        msgHash,
+        sig.r,
+        sig.s,
+        ethAddr,
+        supportsEIP1559
     )
 
     const r = sig.r.toBuffer()
@@ -308,32 +322,30 @@ export class KMSSigner {
     console.log(`Overriden parity (v): `, vEIP155, parity, recoveredPubAddr.v)
 
     const signedTx: Transaction | FeeMarketEIP1559Transaction = supportsEIP1559
-      ? new FeeMarketEIP1559Transaction({
+        ? new FeeMarketEIP1559Transaction({
           ...(tx as FeeMarketEIP1559Transaction),
           r,
           s,
           v,
         })
-      : new Transaction({ ...(tx as Transaction), r, s, v })
+        : new Transaction({ ...(tx as Transaction), r, s, v })
 
     const senderAddr: string = signedTx
-      .getSenderAddress()
-      .toBuffer()
-      .toString('hex')
+        .getSenderAddress()
+        .toBuffer()
+        .toString('hex')
 
     console.log(
-      `Checking sender address for KMS disburser: `,
-      senderAddr,
-      recoveredPubAddr?.pubKey
+        `Checking sender address for KMS disburser: `,
+        senderAddr,
+        recoveredPubAddr?.pubKey
     )
     if (`0x${senderAddr}` !== recoveredPubAddr.pubKey) {
       throw new Error(
-        'Signature invalid, recovered this sender address: ' + senderAddr
+          'Signature invalid, recovered this sender address: ' + senderAddr
       )
     }
-
-    // Send signed tx to ethereum network
-    const serializedTx = signedTx.serialize().toString('hex')
-    return provider.sendTransaction(`0x${serializedTx}`)
+    return signedTx
   }
+
 }
