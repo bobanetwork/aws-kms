@@ -31,6 +31,7 @@ export class KMSSigner {
       awsKmsRegion,
       awsKmsSecretKey,
       awsKmsAccessKey,
+      awsKmsSessionToken,
     } = kmsSignerConfig
     if (isDevelopment) {
       this.kmsClient = new KMSClient({
@@ -39,6 +40,7 @@ export class KMSSigner {
         credentials: {
           accessKeyId: awsKmsAccessKey, // credentials for your IAM user with KMS access
           secretAccessKey: awsKmsSecretKey, // credentials for your IAM user with KMS access
+          sessionToken: awsKmsSessionToken,
         },
       })
     } else {
