@@ -280,6 +280,61 @@ export class KMSSigner {
     return this.sendRawTx(chainId, ethAddr, provider, tx, supportsEIP1559)
   }
 
+  private sendRawTxWithTimeout = async (provider: providers.Provider, serializedTx: string) => {
+    const timeoutMs = 120_000 // 120 seconds
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Transaction send timeout')), timeoutMs)
+    })
+
+    try {
+      const sendPromise = provider.sendTransaction(`0x${serializedTx}`)
+      const response: any = await Promise.race([sendPromise, timeoutPromise])
+
+      // Validate response
+      if (!response || !response.hash) {
+        throw new Error('Invalid transaction response')
+      }
+
+      // Verify transaction was actually submitted
+      const txCheck = await provider.getTransaction(response.hash)
+      if (!txCheck) {
+        throw new Error('Transaction not found after submission')
+      }
+
+      return response
+    } catch (error) {
+      // Check for specific provider errors
+      if (error.code === 'SERVER_ERROR') {
+        throw new Error(`Provider server error: ${error.message}`)
+      }
+      if (error.code === 'TIMEOUT') {
+        throw new Error('Provider timeout')
+      }
+      if (error.code === 'NETWORK_ERROR') {
+        throw new Error('Provider network error')
+      }
+
+      // Rate limiting detection
+      if (error.message?.includes('rate') || error.message?.includes('limit')) {
+        throw new Error('Provider rate limit exceeded')
+      }
+
+      // RPC specific errors
+      if (error.code === -32000) { // Generic RPC error
+        throw new Error(`RPC error: ${error.message}`)
+      }
+      if (error.code === -32601) { // Method not found
+        throw new Error('RPC method not supported by provider')
+      }
+      if (error.code === -32602) { // Invalid params
+        throw new Error('Invalid transaction parameters')
+      }
+
+      throw error
+    }
+  }
+
+
   private sendRawTx = async (
     chainId: number,
     ethAddr: string,
@@ -291,7 +346,7 @@ export class KMSSigner {
 
     // Send signed tx to ethereum network
     const serializedTx = signedTx.serialize().toString('hex')
-    return provider.sendTransaction(`0x${serializedTx}`)
+    return this.sendRawTxWithTimeout(provider, serializedTx)
   }
 
 
