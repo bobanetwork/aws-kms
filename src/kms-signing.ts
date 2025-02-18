@@ -295,6 +295,8 @@ export class KMSSigner {
         throw new Error('Invalid transaction response')
       }
 
+      await provider.waitForTransaction(response.hash)
+
       // Verify transaction was actually submitted
       const txCheck = await provider.getTransaction(response.hash)
       if (!txCheck) {
